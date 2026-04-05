@@ -27,18 +27,26 @@ class StyleStore:
         return self._style_dir(style_id) / "style_image.npy"
 
     def _preprocess_image(self, image_bytes: bytes) -> np.ndarray:
-        """Convert image to grayscale float32 [0,1], pad width to >= 512.
+        """Convert image to grayscale float32 [0,1], resize height to 64, pad width to >= 512.
 
-        Returns array of shape (1, H, W).
+        DiffBrush expects style images at height 64 (IMG_H from training config).
+        Returns array of shape (1, 64, W) where W >= 512.
         """
         img = Image.open(io.BytesIO(image_bytes)).convert("L")
-        arr = np.array(img, dtype=np.float32) / 255.0  # shape (H, W)
+
+        # Resize to height 64, preserving aspect ratio
+        target_h = 64
+        w, h = img.size
+        new_w = max(int(w * target_h / h), 1)
+        img = img.resize((new_w, target_h), Image.LANCZOS)
+
+        arr = np.array(img, dtype=np.float32) / 255.0  # shape (64, W)
 
         if arr.shape[1] < 512:
             pad_width = 512 - arr.shape[1]
             arr = np.pad(arr, ((0, 0), (0, pad_width)), constant_values=1.0)
 
-        return arr[np.newaxis, :, :]  # (1, H, W)
+        return arr[np.newaxis, :, :]  # (1, 64, W)
 
     async def save_style(self, style_id: str, name: str, images: list[bytes]) -> dict:
         """Save raw images and preprocessed style tensor. Returns metadata dict."""

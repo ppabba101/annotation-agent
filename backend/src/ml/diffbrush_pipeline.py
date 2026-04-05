@@ -44,10 +44,11 @@ class DiffBrushPipeline:
         # 1. Sanitize text
         clean_text = sanitize_text(request.text)
 
-        # 2. Get style image bytes from store
-        style_bytes = await self._style_store.get_style_image(request.style_id)
-        if style_bytes is None:
+        # 2. Get style image from store (.npy tensor) and convert to PNG for Modal
+        style_npy_bytes = await self._style_store.get_style_image(request.style_id)
+        if style_npy_bytes is None:
             raise ValueError(f"Style '{request.style_id}' not found")
+        style_bytes = self._npy_to_png(style_npy_bytes)
 
         # 3. Compute layout (splits text into lines)
         layout_request = GenerationRequest(
@@ -125,9 +126,10 @@ class DiffBrushPipeline:
         self._ensure_output_dir()
         clean = sanitize_text(new_text)
 
-        style_bytes = await self._style_store.get_style_image(request.style_id)
-        if style_bytes is None:
+        style_npy_bytes = await self._style_store.get_style_image(request.style_id)
+        if style_npy_bytes is None:
             raise ValueError(f"Style '{request.style_id}' not found")
+        style_bytes = self._npy_to_png(style_npy_bytes)
 
         img_bytes = await self._modal.generate_line(clean, style_bytes)
 
@@ -148,6 +150,16 @@ class DiffBrushPipeline:
             height=request.line_height,
             text_content=clean,
         )
+
+    @staticmethod
+    def _npy_to_png(npy_bytes: bytes) -> bytes:
+        """Convert a numpy .npy file (style tensor) to PNG image bytes."""
+        import numpy as np
+        arr = np.load(BytesIO(npy_bytes))  # shape: (1, H, W), float32 [0,1]
+        img = Image.fromarray((arr[0] * 255).astype(np.uint8), mode="L")
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
 
     async def is_ready(self) -> bool:
         return await self._modal.is_available()
