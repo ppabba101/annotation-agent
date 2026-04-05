@@ -52,6 +52,9 @@ backend/weights/
 # OMC state
 .omc/
 
+# Research repos (reference only, not part of codebase)
+research/
+
 # Test coverage
 coverage/
 htmlcov/
