@@ -24,7 +24,9 @@ diffbrush_image = (
     .pip_install(
         "torch==2.1.2",
         "torchvision==0.16.2",
-        "diffusers==0.24.0",
+        "diffusers==0.29.0",
+        "safetensors==0.4.5",
+        "accelerate",
         "einops==0.7.0",
         "omegaconf",
         "opencv-python-headless==4.9.0.80",
@@ -78,7 +80,7 @@ _UNIFONT_PATH = "/opt/DiffBrush/files/unifont.pickle"
 @app.cls(
     gpu="A10G",
     volumes={"/models": vol},
-    container_idle_timeout=300,  # keep container warm for 5 minutes
+    scaledown_window=300,  # keep container warm for 5 minutes
 )
 class DiffBrushInference:
     """
