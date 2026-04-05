@@ -12,10 +12,7 @@ export interface StartTrainingRequest {
 
 export interface GenerateRequest {
   text: string;
-  styleId: string;
-  pageId: string;
-  position: { x: number; y: number };
-  fontSize?: number;
+  style_id: string;
 }
 
 export interface AnnotateRequest {
@@ -40,6 +37,24 @@ export interface ApiError {
   status: number;
 }
 
+export interface StyleUploadResponse {
+  style_id: string;
+  name: string;
+  sample_count: number;
+}
+
+export interface StyleInfo {
+  id: string;
+  name: string;
+  created_at: string;
+  sample_count: number;
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+}
+
 export interface UploadSampleResponse {
   sampleId: string;
   styleId: string;
@@ -54,9 +69,8 @@ export interface StartTrainingResponse {
 }
 
 export interface GenerateResponse {
-  taskId: string;
-  status: 'queued' | 'processing';
-  resultUrl?: string;
+  task_id: string;
+  status: string;
 }
 
 export interface AnnotateResponse {

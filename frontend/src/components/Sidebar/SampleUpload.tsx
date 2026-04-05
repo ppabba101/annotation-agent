@@ -8,6 +8,8 @@ export function SampleUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadFiles = async (files: FileList | File[]) => {
@@ -18,39 +20,49 @@ export function SampleUpload() {
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadStatus('idle');
+    setStatusMessage('');
 
-    for (let i = 0; i < arr.length; i++) {
-      const file = arr[i];
-      // Optimistic add
-      const tempSample: SampleInfo = {
-        id: crypto.randomUUID(),
-        filename: file.name,
-        url: URL.createObjectURL(file),
-        uploadedAt: new Date().toISOString(),
-        status: 'pending',
-      };
-      addSample(tempSample);
+    // Add optimistic previews
+    const tempSamples: SampleInfo[] = arr.map((file) => ({
+      id: crypto.randomUUID(),
+      filename: file.name,
+      url: URL.createObjectURL(file),
+      uploadedAt: new Date().toISOString(),
+      status: 'pending' as const,
+    }));
+    tempSamples.forEach((s) => addSample(s));
+    setUploadProgress(30);
 
-      try {
-        const res = await apiClient.uploadSample({ file });
-        // Update with server response (replace temp)
-        removeSample(tempSample.id);
-        addSample({
-          id: res.sampleId,
-          filename: file.name,
-          url: tempSample.url,
-          uploadedAt: new Date().toISOString(),
-          status: 'uploaded',
-        });
-      } catch {
-        removeSample(tempSample.id);
-        addSample({ ...tempSample, status: 'error' });
-      }
+    try {
+      const styleName = `Style ${new Date().toLocaleTimeString()}`;
+      const res = await apiClient.uploadStyle(styleName, arr);
+      setUploadProgress(100);
 
-      setUploadProgress(Math.round(((i + 1) / arr.length) * 100));
+      // Set the active style from the response
+      useStyleStore.getState().setStyle(res.style_id, res.name);
+
+      // Update temp samples to uploaded status
+      tempSamples.forEach((s) => {
+        removeSample(s.id);
+        addSample({ ...s, status: 'uploaded' });
+      });
+
+      setUploadStatus('success');
+      setStatusMessage(`Style "${res.name}" created with ${res.sample_count} samples`);
+    } catch (err) {
+      // Mark all temp samples as error
+      tempSamples.forEach((s) => {
+        removeSample(s.id);
+        addSample({ ...s, status: 'error' });
+      });
+
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      setUploadStatus('error');
+      setStatusMessage(msg);
+    } finally {
+      setUploading(false);
     }
-
-    setUploading(false);
   };
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -110,6 +122,13 @@ export function SampleUpload() {
             />
           </div>
         </div>
+      )}
+
+      {/* Status message */}
+      {uploadStatus !== 'idle' && (
+        <p className={`text-xs ${uploadStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+          {statusMessage}
+        </p>
       )}
 
       {/* Sample list */}

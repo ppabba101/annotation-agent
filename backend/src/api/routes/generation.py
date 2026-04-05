@@ -52,4 +52,7 @@ async def get_generation_result(
     result = await service.get_result(task_id=task_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Result not available")
+    # Ensure image_url is present, falling back to the static path convention
+    if "image_url" not in result or not result["image_url"]:
+        result["image_url"] = f"/static/samples/_generated/{task_id}_page.png"
     return result

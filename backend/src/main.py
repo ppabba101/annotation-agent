@@ -5,8 +5,11 @@ import json
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import annotation, generation, health, nlcommand, samples, training
 from src.api.routes.styles import router as styles_router
@@ -47,6 +50,11 @@ app.include_router(generation.router)
 app.include_router(annotation.router)
 app.include_router(nlcommand.router)
 app.include_router(styles_router)
+
+# Static file serving for generated images
+_data_dir = Path(__file__).resolve().parent.parent / "data"
+_data_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_data_dir)), name="static")
 
 
 # WebSocket progress endpoint

@@ -1,12 +1,9 @@
 import type {
-  UploadSampleRequest,
-  UploadSampleResponse,
-  StartTrainingRequest,
-  StartTrainingResponse,
+  StyleUploadResponse,
+  StyleInfo,
+  TaskStatus,
   GenerateRequest,
   GenerateResponse,
-  AnnotateRequest,
-  AnnotateResponse,
   NLCommandRequest,
   NLCommandResponse,
   ApiError,
@@ -53,47 +50,51 @@ async function request<T>(
 }
 
 export const apiClient = {
-  uploadSample: async (req: UploadSampleRequest): Promise<UploadSampleResponse> => {
-    const form = new FormData();
-    form.append('file', req.file);
-    if (req.styleId) form.append('style_id', req.styleId);
+  healthCheck: (): Promise<{ status: string }> =>
+    request<{ status: string }>('/health'),
 
-    const res = await fetch(`${BASE_URL}/samples/upload`, {
+  // Styles
+  uploadStyle: async (name: string, images: File[]): Promise<StyleUploadResponse> => {
+    const form = new FormData();
+    form.append('name', name);
+    images.forEach((img) => form.append('images', img));
+    const res = await fetch(`${BASE_URL}/api/styles/upload`, {
       method: 'POST',
       body: form,
     });
-
     if (!res.ok) {
-      const body = await res.json() as { detail?: string };
-      throw new ApiClientError({ detail: body.detail ?? res.statusText, status: res.status });
+      let detail = res.statusText;
+      try {
+        const body = await res.json() as { detail?: string };
+        detail = body.detail ?? detail;
+      } catch {
+        // ignore
+      }
+      throw new ApiClientError({ detail, status: res.status });
     }
-    return res.json() as Promise<UploadSampleResponse>;
+    return res.json() as Promise<StyleUploadResponse>;
   },
 
-  startTraining: (req: StartTrainingRequest): Promise<StartTrainingResponse> =>
-    request<StartTrainingResponse>('/training/start', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    }),
+  listStyles: (): Promise<StyleInfo[]> =>
+    request<StyleInfo[]>('/api/styles'),
 
+  // Generation
   generate: (req: GenerateRequest): Promise<GenerateResponse> =>
-    request<GenerateResponse>('/generate', {
+    request<GenerateResponse>('/api/generate', {
       method: 'POST',
       body: JSON.stringify(req),
     }),
 
-  annotate: (req: AnnotateRequest): Promise<AnnotateResponse> =>
-    request<AnnotateResponse>('/annotate', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    }),
+  getTaskStatus: (taskId: string): Promise<TaskStatus> =>
+    request<TaskStatus>(`/api/generate/${taskId}/status`),
 
+  getTaskResult: (taskId: string): Promise<Record<string, unknown>> =>
+    request<Record<string, unknown>>(`/api/generate/${taskId}/result`),
+
+  // NL Commands
   sendNLCommand: (req: NLCommandRequest): Promise<NLCommandResponse> =>
-    request<NLCommandResponse>('/command', {
+    request<NLCommandResponse>('/api/nlcommand', {
       method: 'POST',
       body: JSON.stringify(req),
     }),
-
-  healthCheck: (): Promise<{ status: string }> =>
-    request<{ status: string }>('/health'),
 };

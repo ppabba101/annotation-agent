@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Canvas } from 'fabric';
+import { Canvas, FabricImage } from 'fabric';
 import type { ToolType } from '@/types/canvas';
 
 interface CanvasState {
@@ -14,6 +14,7 @@ interface CanvasState {
   pushUndo: () => void;
   undo: () => void;
   redo: () => void;
+  loadImage: (url: string) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -61,6 +62,47 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       undoStack: [...undoStack, current],
       redoStack: redoStack.slice(0, -1),
+    });
+  },
+
+  loadImage: (url: string) => {
+    const { canvas } = get();
+    if (!canvas) return;
+
+    // Remove placeholder text if present
+    const objects = canvas.getObjects();
+    const placeholder = objects.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (obj: any) => obj.name === '__placeholder__'
+    );
+    if (placeholder) {
+      canvas.remove(placeholder);
+    }
+
+    FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((img) => {
+      // Scale to fit canvas width with some padding
+      const canvasWidth = canvas.getWidth();
+      const canvasHeight = canvas.getHeight();
+      const padding = 40;
+      const maxWidth = canvasWidth - padding * 2;
+      const maxHeight = canvasHeight - padding * 2;
+
+      const imgWidth = img.width ?? maxWidth;
+      const imgHeight = img.height ?? maxHeight;
+      const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight, 1);
+
+      img.set({
+        scaleX: scale,
+        scaleY: scale,
+        left: canvasWidth / 2,
+        top: canvasHeight / 2,
+        originX: 'center',
+        originY: 'center',
+      });
+
+      canvas.add(img);
+      canvas.setActiveObject(img);
+      canvas.renderAll();
     });
   },
 }));
