@@ -59,26 +59,38 @@ research/
 
 **Key research finding:** All top models accept image-based style references (scanned/photographed handwriting). No tablet required.
 
-**Recommended approach: DiffusionPen (primary)**
-- Pretrained weights on HuggingFace (huggingface.co/konnik/DiffusionPen)
-- 5 handwriting sample images → personalized style
-- Paragraph-level generation
-- Single GPU inference (unlike DiffBrush which needs 4)
-- Modern PyTorch, CANINE tokenizer for text conditioning
-- Upgrade path to DiffBrush (same research lineage) for better quality later
+### Phase 1.5 Result: GO — DiffBrush as Primary Engine
 
+**Evaluated 3 models on Modal (A10G GPU):**
+
+| Model | Sentence Quality | Speed | Style Consistency | Verdict |
+|-------|-----------------|-------|-------------------|---------|
+| **DiffBrush** | Excellent — full-line, natural spacing | ~1.3s/line | Consistent (single pass) | **WINNER** |
+| DiffusionPen | Good per-word, crude assembly | ~1s/word | Inconsistent | Runner-up |
+| One-DM | Not evaluated (checkpoint mismatch) | — | — | Skipped |
+
+**Why DiffBrush won:** Generates entire text lines in a single forward pass. "The quick brown fox jumps over the lazy dog" looks like real handwriting — natural word spacing, consistent style, fully legible. DiffusionPen generates word-by-word and requires assembly, producing inconsistent styles.
+
+**Eval scripts:** `backend/src/ml/eval_diffusionpen.py`, `backend/src/ml/eval_comparison.py`
+**Output images:** `backend/data/eval_comparison/`
 **Full research report:** `.omc/research/phase-1.5-ml-research.md`
 
 ---
 
 ## What Needs to Happen Next
 
-### Immediate: Finish Phase 1.5 (ML Evaluation)
+### Immediate: Phase 2a — Build DiffBrush Generation Pipeline
 
-**Goal:** Run DiffusionPen with pretrained weights, generate test output, evaluate quality.
+**Goal:** Replace MockPipeline with real DiffBrush-based generation behind the GenerationPipeline protocol.
 
 **Steps:**
-1. Set up cloud GPU environment (see Cloud GPU Setup below)
+1. Implement DiffBrushPipeline class (implements GenerationPipeline protocol)
+2. Modal-based GPU inference service (DiffBrush model loaded on A10G)
+3. Sample upload API — accept handwriting images, preprocess for style encoding
+4. Style encoder — extract style embedding from user's handwriting samples
+5. Layout engine — split text into lines, compose with natural variation
+6. Wire into existing FastAPI endpoints (replace MockPipeline)
+7. Test end-to-end: upload samples → generate page → get output
 2. Download DiffusionPen pretrained weights from HuggingFace
 3. Download Stable Diffusion v1.5 VAE (required by DiffusionPen)
 4. Run inference with test text + IAM dataset style references
