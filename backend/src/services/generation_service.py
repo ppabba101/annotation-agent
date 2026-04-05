@@ -1,9 +1,28 @@
-from src.ml.mock_pipeline import MockPipeline
+import logging
+
+from src.config import settings
 from src.ml.pipeline import GenerationPipeline, GenerationRequest
 from src.workers.task_queue import TaskQueue, TaskStatus
 
+logger = logging.getLogger(__name__)
+
 _queue = TaskQueue()
-_pipeline: GenerationPipeline = MockPipeline()
+
+
+def _build_pipeline() -> GenerationPipeline:
+    if settings.GPU_PROVIDER == "modal":
+        try:
+            from src.ml.diffbrush_pipeline import DiffBrushPipeline
+            return DiffBrushPipeline()
+        except Exception as exc:
+            logger.warning(
+                "DiffBrushPipeline unavailable (%s), falling back to MockPipeline", exc
+            )
+    from src.ml.mock_pipeline import MockPipeline
+    return MockPipeline()
+
+
+_pipeline: GenerationPipeline = _build_pipeline()
 
 
 class GenerationService:

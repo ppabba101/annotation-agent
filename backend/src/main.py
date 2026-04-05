@@ -9,6 +9,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes import annotation, generation, health, nlcommand, samples, training
+from src.api.routes.styles import router as styles_router
 from src.config import settings
 
 
@@ -45,6 +46,7 @@ app.include_router(training.router)
 app.include_router(generation.router)
 app.include_router(annotation.router)
 app.include_router(nlcommand.router)
+app.include_router(styles_router)
 
 
 # WebSocket progress endpoint
