@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Electron
+out/
+release/
+
+# Build artifacts
+*.tsbuildinfo
+.vite/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project files (large binaries)
+*.hwproj
+
+# ML models and weights
+backend/models/
+backend/weights/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# OMC state
+.omc/
+
+# Test coverage
+coverage/
+htmlcov/
+.coverage
+.pytest_cache/

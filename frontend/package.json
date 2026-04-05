@@ -1,0 +1,35 @@
+{
+  "name": "annotation-agent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "fabric": "^6.6.1",
+    "pdfjs-dist": "^4.10.38",
+    "zustand": "^5.0.3",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/node": "^22.12.0",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.3",
+    "tailwindcss": "^4.1.4",
+    "@tailwindcss/vite": "^4.1.4"
+  }
+}
