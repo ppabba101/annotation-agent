@@ -1,15 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Canvas as FabricCanvas, FabricText, Point } from 'fabric';
 import { useCanvasStore } from '@/stores/canvasStore';
+import { ToolDispatcher } from './tools';
 
 export function Canvas() {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { setCanvas, canvas } = useCanvasStore();
-
-  const isPanning = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-  const spaceDown = useRef(false);
+  const dispatcherRef = useRef(new ToolDispatcher());
+  const { setCanvas, canvas, activeTool } = useCanvasStore();
 
   const initCanvas = useCallback(() => {
     const el = canvasElRef.current;
@@ -83,58 +81,22 @@ export function Canvas() {
     return () => el.removeEventListener('wheel', onWheel);
   }, [canvas]);
 
-  // Pan via middle-click or spacebar+drag
+  // Tool dispatcher: routes mouse/key events to active tool handler
   useEffect(() => {
     if (!canvas) return;
+    const dispatcher = dispatcherRef.current;
+    dispatcher.setActiveTool(canvas, activeTool);
 
-    const onMouseDown = (opt: { e: MouseEvent }) => {
-      const e = opt.e;
-      if (e.button === 1 || spaceDown.current) {
-        isPanning.current = true;
-        lastPos.current = { x: e.clientX, y: e.clientY };
-        canvas.setCursor('grabbing');
-        e.preventDefault();
-      }
-    };
-
-    const onMouseMove = (opt: { e: MouseEvent }) => {
-      if (!isPanning.current) return;
-      const e = opt.e;
-      const vpt = canvas.viewportTransform;
-      if (!vpt) return;
-      vpt[4] += e.clientX - lastPos.current.x;
-      vpt[5] += e.clientY - lastPos.current.y;
-      canvas.requestRenderAll();
-      lastPos.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const onMouseUp = () => {
-      isPanning.current = false;
-      canvas.setCursor('default');
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        spaceDown.current = true;
-        canvas.setCursor('grab');
-      }
-    };
-
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        spaceDown.current = false;
-        canvas.setCursor('default');
-      }
-    };
-
-    // Fabric.js v6 event registration via object handlers
     const handlers = {
-      'mouse:down': onMouseDown,
-      'mouse:move': onMouseMove,
-      'mouse:up': onMouseUp,
+      'mouse:down': (opt: { e: MouseEvent }) => dispatcher.onMouseDown(canvas, opt.e),
+      'mouse:move': (opt: { e: MouseEvent }) => dispatcher.onMouseMove(canvas, opt.e),
+      'mouse:up': (opt: { e: MouseEvent }) => dispatcher.onMouseUp(canvas, opt.e),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     canvas.on(handlers as any);
+
+    const onKeyDown = (e: KeyboardEvent) => dispatcher.onKeyDown(e, canvas);
+    const onKeyUp = (e: KeyboardEvent) => dispatcher.onKeyUp(e, canvas);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
 
@@ -144,7 +106,7 @@ export function Canvas() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [canvas]);
+  }, [canvas, activeTool]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 bg-gray-800">

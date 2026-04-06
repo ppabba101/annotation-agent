@@ -6,11 +6,16 @@ interface CanvasState {
   canvas: Canvas | null;
   activeTool: ToolType;
   zoom: number;
+  pdfRenderScale: number;
+  bgImageScale: number;
+  highlightColor: string;
   undoStack: string[];
   redoStack: string[];
   setCanvas: (canvas: Canvas) => void;
   setActiveTool: (tool: ToolType) => void;
   setZoom: (zoom: number) => void;
+  setPdfScales: (renderScale: number, bgScale: number) => void;
+  setHighlightColor: (color: string) => void;
   pushUndo: () => void;
   undo: () => void;
   redo: () => void;
@@ -21,6 +26,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvas: null,
   activeTool: 'select',
   zoom: 1,
+  pdfRenderScale: 1.5,
+  bgImageScale: 1,
+  highlightColor: 'rgba(255, 235, 59, 0.3)',
   undoStack: [],
   redoStack: [],
 
@@ -29,6 +37,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
 
   setZoom: (zoom) => set({ zoom }),
+
+  setPdfScales: (renderScale, bgScale) =>
+    set({ pdfRenderScale: renderScale, bgImageScale: bgScale }),
+
+  setHighlightColor: (color) => set({ highlightColor: color }),
 
   pushUndo: () => {
     const { canvas, undoStack } = get();

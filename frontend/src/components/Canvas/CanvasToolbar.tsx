@@ -1,4 +1,5 @@
 import { useCanvasStore } from '@/stores/canvasStore';
+import { HIGHLIGHT_COLORS } from '@/components/Canvas/tools/HighlightTool';
 import type { ToolType } from '@/types/canvas';
 
 interface Tool {
@@ -16,8 +17,16 @@ const TOOLS: Tool[] = [
   { id: 'underline', label: 'Underline', shortcut: 'U' },
 ];
 
+const COLOR_SWATCHES: { name: string; value: string; bg: string }[] = [
+  { name: 'Yellow', value: HIGHLIGHT_COLORS.yellow, bg: 'bg-yellow-400' },
+  { name: 'Green', value: HIGHLIGHT_COLORS.green, bg: 'bg-green-500' },
+  { name: 'Pink', value: HIGHLIGHT_COLORS.pink, bg: 'bg-pink-500' },
+  { name: 'Blue', value: HIGHLIGHT_COLORS.blue, bg: 'bg-blue-500' },
+];
+
 export function CanvasToolbar() {
-  const { activeTool, setActiveTool, undo, redo } = useCanvasStore();
+  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo } =
+    useCanvasStore();
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-gray-900 border-b border-gray-800">
@@ -36,6 +45,24 @@ export function CanvasToolbar() {
           {tool.label}
         </button>
       ))}
+
+      {activeTool === 'highlight' && (
+        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-700">
+          {COLOR_SWATCHES.map((swatch) => (
+            <button
+              key={swatch.name}
+              onClick={() => setHighlightColor(swatch.value)}
+              title={swatch.name}
+              className={`
+                w-5 h-5 rounded-full ${swatch.bg} transition-transform
+                ${highlightColor === swatch.value
+                  ? 'ring-2 ring-white scale-110'
+                  : 'opacity-70 hover:opacity-100'}
+              `}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="ml-auto flex items-center gap-1">
         <button

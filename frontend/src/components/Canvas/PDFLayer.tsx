@@ -1,6 +1,7 @@
 import type { Canvas as FabricCanvas } from 'fabric';
 import { FabricImage } from 'fabric';
 import * as pdfjsLib from 'pdfjs-dist';
+import { useCanvasStore } from '@/stores/canvasStore';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -38,6 +39,7 @@ export async function loadPDF(
         const scaleX = fabricCanvas.width! / img.width!;
         const scaleY = fabricCanvas.height! / img.height!;
         const scale = Math.min(scaleX, scaleY);
+        useCanvasStore.getState().setPdfScales(1.5, scale);
 
         img.set({ scaleX: scale, scaleY: scale, selectable: false, evented: false });
         fabricCanvas.backgroundImage = img;
