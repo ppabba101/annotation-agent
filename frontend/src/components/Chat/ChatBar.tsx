@@ -48,6 +48,18 @@ async function pollTaskUntilDone(taskId: string, onStatus: (status: string) => v
   return 'timeout';
 }
 
+async function pollAnnotationTask(taskId: string, onStatus: (status: string) => void): Promise<string> {
+  const maxAttempts = 300; // 5 min for long PDFs
+  for (let i = 0; i < maxAttempts; i++) {
+    const result = await apiClient.getAnnotationStatus(taskId);
+    onStatus(result.status);
+    if (result.status === 'completed') return 'completed';
+    if (result.status === 'failed') return 'failed';
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return 'timeout';
+}
+
 type InlineStatus = {
   text: string;
   type: 'info' | 'success' | 'error';
@@ -147,7 +159,7 @@ export function ChatBar() {
         style_index: currentStyleIndex,
       });
 
-      const finalStatus = await pollTaskUntilDone(annotateRes.task_id, (status) => {
+      const finalStatus = await pollAnnotationTask(annotateRes.task_id, (status) => {
         showStatus(`Annotating... (${status})`, 'info');
       });
 
@@ -198,7 +210,7 @@ export function ChatBar() {
         style_index: currentStyleIndex,
       });
 
-      const finalStatus = await pollTaskUntilDone(annotateRes.task_id, (status) => {
+      const finalStatus = await pollAnnotationTask(annotateRes.task_id, (status) => {
         showStatus(`Studying PDF... (${status})`, 'info');
       });
 
