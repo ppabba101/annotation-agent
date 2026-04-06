@@ -4,6 +4,9 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { TextLayer } from 'pdfjs-dist';
 import { useCanvasStore } from '@/stores/canvasStore';
 
+// Import the official PDF.js text layer CSS for proper span positioning
+import 'pdfjs-dist/web/pdf_viewer.css';
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
   import.meta.url
@@ -20,14 +23,13 @@ function removeTextLayer(fabricCanvas: FabricCanvas): void {
 }
 
 /**
- * Create a PDF.js text layer that sits on top of the canvas.
- * The layer is invisible but allows text selection and copy.
+ * Create a PDF.js text layer for text selection/copy.
  *
- * Key design: pointer-events are ALWAYS enabled on the text layer.
- * The text is fully transparent so it doesn't obscure the canvas.
- * When the user selects text, the browser's native selection works.
- * Annotation tools work because they use Fabric.js events on the
- * canvas element UNDERNEATH the text layer.
+ * Strategy for pointer-events:
+ * - The text layer starts with pointer-events: none
+ * - A transparent overlay button in the toolbar toggles text selection mode
+ * - When the user holds Ctrl/Cmd or is in Select mode, text layer activates
+ * - This prevents the text layer from blocking annotation tools
  */
 async function createTextLayer(
   fabricCanvas: FabricCanvas,
@@ -41,10 +43,11 @@ async function createTextLayer(
 
   removeTextLayer(fabricCanvas);
 
+  // Container for the text layer — uses PDF.js "textLayer" class for proper CSS
   const textLayerDiv = document.createElement('div');
   textLayerDiv.id = TEXT_LAYER_ID;
+  textLayerDiv.className = 'textLayer';
 
-  // Position the text layer exactly over the PDF background image
   const displayWidth = viewport.width * bgScale;
   const displayHeight = viewport.height * bgScale;
 
@@ -54,8 +57,8 @@ async function createTextLayer(
     top: 0;
     width: ${displayWidth}px;
     height: ${displayHeight}px;
-    overflow: hidden;
     z-index: 2;
+    pointer-events: none;
     user-select: text;
     -webkit-user-select: text;
   `;
@@ -74,38 +77,42 @@ async function createTextLayer(
 
   await textLayer.render();
 
-  // Make text spans transparent but selectable
-  const spans = textLayerDiv.querySelectorAll('span');
-  spans.forEach((span) => {
-    span.style.color = 'transparent';
-    span.style.position = 'absolute';
-    span.style.whiteSpace = 'pre';
-    span.style.cursor = 'text';
-  });
-
-  // The text layer captures mouse events for text selection.
-  // To let annotation tools work, we intercept and forward non-selection events.
-  // Strategy: text layer catches mousedown. If no text is under the cursor,
-  // or if a drawing tool is active, pass the event through to the canvas.
-  textLayerDiv.addEventListener('mousedown', () => {
-    const activeTool = useCanvasStore.getState().activeTool;
-
-    // If a drawing tool is active (not select), pass through to canvas
-    if (activeTool !== 'select') {
+  // Listen for Ctrl/Cmd key to enable text selection temporarily
+  const enableSelection = () => {
+    textLayerDiv.style.pointerEvents = 'auto';
+  };
+  const disableSelection = () => {
+    // Only disable if no text is currently selected
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
       textLayerDiv.style.pointerEvents = 'none';
-      // Re-enable after a tick so future selections work
-      requestAnimationFrame(() => {
-        textLayerDiv.style.pointerEvents = 'auto';
-      });
-      return;
     }
+  };
 
-    // In select mode: allow text selection naturally
-    // The browser handles text selection on the spans
-  });
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey) enableSelection();
+  };
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (!e.metaKey && !e.ctrlKey) {
+      // Delay to allow copy shortcut to complete
+      setTimeout(disableSelection, 200);
+    }
+  };
+  const onMouseUp = () => {
+    // After any mouse up, check if we should disable
+    setTimeout(disableSelection, 300);
+  };
 
-  // Keep pointer events enabled so text selection works
-  textLayerDiv.style.pointerEvents = 'auto';
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('mouseup', onMouseUp);
+
+  // Store cleanup functions on the element for removal
+  (textLayerDiv as any).__cleanup = () => {
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
+    window.removeEventListener('mouseup', onMouseUp);
+  };
 }
 
 export async function loadPDF(
@@ -115,12 +122,20 @@ export async function loadPDF(
 ): Promise<void> {
   // Remove placeholder text if present
   const objects = fabricCanvas.getObjects();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const placeholder = objects.find((obj: any) => obj.name === '__placeholder__');
+  const placeholder = objects.find(
+    (obj: any) => obj.name === '__placeholder__'
+  );
   if (placeholder) {
     fabricCanvas.remove(placeholder);
   }
 
+  // Clean up previous text layer event listeners
+  const canvasEl = fabricCanvas.getElement();
+  const container = canvasEl.parentElement;
+  if (container) {
+    const old = container.querySelector(`#${TEXT_LAYER_ID}`) as any;
+    if (old?.__cleanup) old.__cleanup();
+  }
   removeTextLayer(fabricCanvas);
 
   const arrayBuffer = await file.arrayBuffer();
