@@ -154,18 +154,21 @@ export function wobbleEllipse(
   const startAngle = rng() * Math.PI * 2;
 
   // Humans draw slightly more than 360 degrees (overshoot to close)
-  const overshoot = lerp(0.05, 0.2, messiness);
+  const overshoot = lerp(0.1, 0.35, messiness);
   const totalAngle = Math.PI * 2 + overshoot;
 
-  // Generate base points with slight angular speed variation
+  // Generate base points with angular speed variation
+  // Humans draw some parts of a circle faster than others
   const basePoints: { x: number; y: number }[] = [];
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
-    const angle = startAngle + totalAngle * t;
 
-    // Slight radius variation that's coherent (not random per-point)
-    // Use low-frequency noise for organic shape distortion
-    const radiusNoise = valueNoise1D(t * 3, opts?.seed ?? 42) * rx * 0.04 * messiness;
+    // Speed variation: warp t so some segments are drawn faster/slower
+    const speedWarp = t + 0.03 * messiness * Math.sin(t * Math.PI * 4 + startAngle);
+    const angle = startAngle + totalAngle * speedWarp;
+
+    // More visible radius variation for organic shape distortion
+    const radiusNoise = valueNoise1D(t * 3, opts?.seed ?? 42) * rx * 0.08 * messiness;
 
     basePoints.push({
       x: cx + (rx + radiusNoise) * Math.cos(angle),

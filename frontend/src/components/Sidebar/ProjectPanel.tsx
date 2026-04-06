@@ -1,14 +1,29 @@
+import { useRef } from 'react';
 import { useProjectStore } from '@/stores/projectStore';
+import { useStyleStore } from '@/stores/styleStore';
+import { useCanvasStore } from '@/stores/canvasStore';
+import { loadPDF } from '@/components/Canvas/PDFLayer';
 
 export function ProjectPanel() {
-  const {
-    projectName,
-    pages,
-    currentPageIndex,
-    setCurrentPage,
-    addPage,
-    deletePage,
-  } = useProjectStore();
+  const { projectName } = useProjectStore();
+  const { currentStyleId, styleName } = useStyleStore();
+  const { canvas } = useCanvasStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfOpen = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !canvas) return;
+    try {
+      await loadPDF(file, 1, canvas);
+    } catch (err) {
+      console.error('Failed to load PDF:', err);
+    }
+    e.target.value = '';
+  };
 
   return (
     <div className="p-4">
@@ -20,49 +35,31 @@ export function ProjectPanel() {
         {projectName}
       </p>
 
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500">Pages ({pages.length})</span>
-        <button
-          onClick={addPage}
-          title="New page"
-          className="text-xs px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
-        >
-          + New
-        </button>
+      {/* Style status */}
+      <div className="flex items-center gap-2 mb-4 px-2 py-2 rounded bg-gray-800/50 border border-gray-700/50">
+        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${currentStyleId ? 'bg-green-500' : 'bg-gray-600'}`} />
+        <div className="min-w-0">
+          <p className="text-xs text-gray-300 truncate">{styleName}</p>
+          <p className="text-xs text-gray-600">
+            {currentStyleId ? 'Style ready' : 'No style loaded'}
+          </p>
+        </div>
       </div>
 
-      <ul className="space-y-1">
-        {pages.map((page, i) => (
-          <li key={page.id}>
-            <div
-              className={`
-                flex items-center justify-between px-2 py-1.5 rounded cursor-pointer group
-                ${currentPageIndex === i
-                  ? 'bg-indigo-900/60 text-indigo-200'
-                  : 'hover:bg-gray-800 text-gray-400'}
-              `}
-              onClick={() => setCurrentPage(i)}
-            >
-              {/* Thumbnail placeholder */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-8 h-10 rounded bg-gray-700 shrink-0 flex items-center justify-center text-gray-600 text-xs">
-                  {i + 1}
-                </div>
-                <span className="text-xs truncate">{page.label}</span>
-              </div>
-              {pages.length > 1 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); deletePage(i); }}
-                  title="Delete page"
-                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all text-xs ml-1"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {/* Open PDF */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        onChange={(e) => void handleFileChange(e)}
+        className="hidden"
+      />
+      <button
+        onClick={handlePdfOpen}
+        className="w-full text-xs px-3 py-2.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors border border-gray-700 font-medium"
+      >
+        Open PDF
+      </button>
     </div>
   );
 }

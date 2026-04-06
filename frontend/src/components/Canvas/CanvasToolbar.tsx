@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { HIGHLIGHT_COLORS } from '@/components/Canvas/tools/HighlightTool';
+import { loadPDF } from '@/components/Canvas/PDFLayer';
 import type { ToolType } from '@/types/canvas';
 
 interface Tool {
@@ -25,11 +27,45 @@ const COLOR_SWATCHES: { name: string; value: string; bg: string }[] = [
 ];
 
 export function CanvasToolbar() {
-  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo } =
+  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo, canvas } =
     useCanvasStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfOpen = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !canvas) return;
+    try {
+      await loadPDF(file, 1, canvas);
+    } catch (err) {
+      console.error('Failed to load PDF:', err);
+    }
+    // Reset so same file can be re-selected
+    e.target.value = '';
+  };
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-gray-900 border-b border-gray-800">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        onChange={(e) => void handleFileChange(e)}
+        className="hidden"
+      />
+      <button
+        onClick={handlePdfOpen}
+        title="Open PDF file"
+        className="px-3 py-1.5 rounded text-xs font-medium bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-600 transition-colors mr-2"
+      >
+        Open PDF
+      </button>
+
+      <div className="w-px h-5 bg-gray-700 mr-1" />
+
       {TOOLS.map((tool) => (
         <button
           key={tool.id}
@@ -38,7 +74,7 @@ export function CanvasToolbar() {
           className={`
             px-3 py-1.5 rounded text-xs font-medium transition-colors
             ${activeTool === tool.id
-              ? 'bg-indigo-600 text-white'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-1 ring-indigo-400'
               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}
           `}
         >
