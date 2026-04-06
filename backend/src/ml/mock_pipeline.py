@@ -64,7 +64,7 @@ class MockPipeline:
 
             line_results.append(
                 LineResult(
-                    image_url=f"/static/generated/{line_name}",
+                    image_url=f"/static/samples/_generated/{line_name}",
                     x=layout.x,
                     y=layout.y,
                     width=layout.width,
@@ -83,7 +83,7 @@ class MockPipeline:
 
         yield GenerationProgress(percent=100.0, message="Done")
         yield GenerationResult(
-            image_url=f"/static/generated/{page_name}",
+            image_url=f"/static/samples/_generated/{page_name}",
             lines=line_results,
         )
 
@@ -106,7 +106,7 @@ class MockPipeline:
 
         y = request.margin_top + line_index * request.line_height
         return LineResult(
-            image_url=f"/static/generated/{name}",
+            image_url=f"/static/samples/_generated/{name}",
             x=request.margin_left,
             y=y,
             width=img.width,

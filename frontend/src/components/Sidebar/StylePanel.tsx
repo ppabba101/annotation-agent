@@ -21,12 +21,27 @@ export function StylePanel() {
         </p>
       )}
 
-      {/* Style preview */}
-      <div className="w-full h-16 rounded bg-gray-800 border border-gray-700 flex items-center justify-center mb-3 overflow-hidden">
-        {samples.length > 0 && samples[0].url ? (
-          <img src={samples[0].url} alt="Style preview" className="h-full w-full object-cover" />
+      {/* Style preview — show uploaded sample or backend-served image */}
+      <div className="w-full h-20 rounded bg-gray-800 border border-gray-700 flex items-center justify-center mb-3 overflow-hidden">
+        {currentStyleId ? (
+          <img
+            src={
+              samples.length > 0 && samples[0].url
+                ? samples[0].url
+                : `http://localhost:8000/static/styles/${currentStyleId}/samples/sample_0.png`
+            }
+            alt="Style preview"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              // Blob URL expired — fall back to backend-served image
+              const target = e.currentTarget;
+              if (currentStyleId && !target.src.includes('/static/styles/')) {
+                target.src = `http://localhost:8000/static/styles/${currentStyleId}/samples/sample_0.png`;
+              }
+            }}
+          />
         ) : (
-          <span className="text-xs text-gray-600">Style preview</span>
+          <span className="text-xs text-gray-600">Upload samples to see preview</span>
         )}
       </div>
 

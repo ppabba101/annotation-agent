@@ -9,6 +9,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+# Register HEIC/HEIF opener so PIL can handle iPhone photos
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass  # pillow-heif not installed; HEIC files won't work
+
 
 class StyleStore:
     def __init__(self, base_dir: str = "data/styles") -> None:
