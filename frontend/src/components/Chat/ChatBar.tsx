@@ -5,9 +5,13 @@ import { apiClient } from '@/services/api';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useStyleStore } from '@/stores/styleStore';
 import { renderStrokes } from '@/lib/strokeRenderer';
+import { executeAnnotations } from '@/lib/annotationExecutor';
+import type { ResolvedAnnotation } from '@/lib/annotationExecutor';
 import type { StrokeResult } from '@/types/api';
 
 const GENERATE_PREFIXES = ['write:', 'generate:', 'gen:'] as const;
+const ANNOTATE_PREFIX = 'annotate:';
+const STUDY_PREFIX = 'study:';
 
 function parseGenerateCommand(text: string): string | null {
   const lower = text.toLowerCase();
@@ -17,6 +21,19 @@ function parseGenerateCommand(text: string): string | null {
     }
   }
   return null;
+}
+
+function parseAnnotateCommand(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (lower.startsWith(ANNOTATE_PREFIX)) {
+    return text.slice(ANNOTATE_PREFIX.length).trim();
+  }
+  return null;
+}
+
+function parseStudyCommand(text: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.startsWith(STUDY_PREFIX);
 }
 
 async function pollTaskUntilDone(taskId: string, onStatus: (status: string) => void): Promise<string> {
@@ -106,6 +123,114 @@ export function ChatBar() {
     }
   };
 
+  const submitAnnotate = async (command: string) => {
+    const { pdfFile, pdfCurrentPage } = useCanvasStore.getState();
+    const { currentStyleIndex } = useStyleStore.getState();
+
+    if (!pdfFile) {
+      showStatus('Open a PDF first before using annotate:', 'error');
+      useChatStore.getState().updateLastMessage('No PDF loaded. Open a PDF first.', 'error');
+      return;
+    }
+
+    showStatus('Uploading PDF for annotation...', 'info');
+    try {
+      const uploadRes = await apiClient.uploadPdf(pdfFile);
+
+      showStatus('Annotating page...', 'info');
+      const annotateRes = await apiClient.annotatePrompt({
+        pdf_path: uploadRes.pdf_path,
+        page_num: pdfCurrentPage,
+        command: command || undefined,
+        canvas_width: canvas?.getWidth() ?? 1000,
+        canvas_height: canvas?.getHeight() ?? 1000,
+        style_index: currentStyleIndex,
+      });
+
+      const finalStatus = await pollTaskUntilDone(annotateRes.task_id, (status) => {
+        showStatus(`Annotating... (${status})`, 'info');
+      });
+
+      if (finalStatus === 'completed') {
+        const result = await apiClient.getAnnotationResult(annotateRes.task_id);
+        const annotations = (result.annotations ?? []) as ResolvedAnnotation[];
+        if (annotations.length > 0 && canvas) {
+          useCanvasStore.getState().pushUndo();
+          await executeAnnotations(canvas, annotations);
+          showStatus(`Done! ${annotations.length} annotations added.`, 'success');
+          useChatStore.getState().updateLastMessage(`Added ${annotations.length} annotations to page.`, 'ok');
+        } else {
+          showStatus('No annotations generated', 'error');
+          useChatStore.getState().updateLastMessage('No annotations were generated.', 'error');
+        }
+      } else {
+        showStatus(`Annotation ${finalStatus}`, 'error');
+        useChatStore.getState().updateLastMessage(`Annotation ${finalStatus}.`, 'error');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      showStatus(`Failed: ${msg}`, 'error');
+      useChatStore.getState().updateLastMessage(`Error: ${msg}`, 'error');
+    }
+  };
+
+  const submitStudy = async () => {
+    const { pdfFile, pdfCurrentPage, pdfTotalPages } = useCanvasStore.getState();
+    const { currentStyleIndex } = useStyleStore.getState();
+
+    if (!pdfFile) {
+      showStatus('Open a PDF first before using study:', 'error');
+      useChatStore.getState().updateLastMessage('No PDF loaded. Open a PDF first.', 'error');
+      return;
+    }
+
+    showStatus('Uploading PDF for autonomous study...', 'info');
+    try {
+      const uploadRes = await apiClient.uploadPdf(pdfFile);
+
+      showStatus('Running autonomous annotation...', 'info');
+      const annotateRes = await apiClient.annotateAutonomous({
+        pdf_path: uploadRes.pdf_path,
+        start_page: pdfCurrentPage,
+        end_page: pdfTotalPages > 0 ? pdfTotalPages : undefined,
+        canvas_width: canvas?.getWidth() ?? 1000,
+        canvas_height: canvas?.getHeight() ?? 1000,
+        style_index: currentStyleIndex,
+      });
+
+      const finalStatus = await pollTaskUntilDone(annotateRes.task_id, (status) => {
+        showStatus(`Studying PDF... (${status})`, 'info');
+      });
+
+      if (finalStatus === 'completed') {
+        const result = await apiClient.getAnnotationResult(annotateRes.task_id);
+        // Result has pages with annotations per page; apply current page's annotations
+        const pages = (result.pages ?? {}) as Record<string, { annotations: ResolvedAnnotation[] }>;
+        const currentPageData = pages[String(pdfCurrentPage)];
+        if (currentPageData && currentPageData.annotations.length > 0 && canvas) {
+          useCanvasStore.getState().pushUndo();
+          await executeAnnotations(canvas, currentPageData.annotations);
+          const totalAnnotations = Object.values(pages).reduce((sum, p) => sum + p.annotations.length, 0);
+          showStatus(`Done! ${totalAnnotations} annotations across ${Object.keys(pages).length} pages.`, 'success');
+          useChatStore.getState().updateLastMessage(
+            `Study complete: ${totalAnnotations} annotations across ${Object.keys(pages).length} pages. Current page annotations applied.`,
+            'ok',
+          );
+        } else {
+          showStatus('No annotations generated', 'error');
+          useChatStore.getState().updateLastMessage('No annotations were generated.', 'error');
+        }
+      } else {
+        showStatus(`Study ${finalStatus}`, 'error');
+        useChatStore.getState().updateLastMessage(`Study ${finalStatus}.`, 'error');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      showStatus(`Failed: ${msg}`, 'error');
+      useChatStore.getState().updateLastMessage(`Error: ${msg}`, 'error');
+    }
+  };
+
   const submit = async () => {
     const text = input.trim();
     if (!text || isProcessing) return;
@@ -116,10 +241,30 @@ export function ChatBar() {
     addMessage('assistant', '...');
 
     const generateText = parseGenerateCommand(text);
+    const annotateText = parseAnnotateCommand(text);
+    const isStudy = parseStudyCommand(text);
 
     if (generateText) {
       try {
         await submitGeneration(generateText);
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
+    if (annotateText !== null) {
+      try {
+        await submitAnnotate(annotateText);
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
+    if (isStudy) {
+      try {
+        await submitStudy();
       } finally {
         setProcessing(false);
       }
@@ -203,7 +348,7 @@ export function ChatBar() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="write: your text here — or type a command"
+          placeholder="write: text | annotate: instruction | study: auto-annotate"
           disabled={isProcessing}
           className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-colors"
         />

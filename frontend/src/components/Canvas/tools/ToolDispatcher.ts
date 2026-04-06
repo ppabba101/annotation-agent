@@ -7,6 +7,7 @@ import { CircleTool } from './CircleTool';
 import { ArrowTool } from './ArrowTool';
 import { UnderlineTool } from './UnderlineTool';
 import { HighlightTool } from './HighlightTool';
+import { PenTool } from './PenTool';
 
 export class ToolDispatcher {
   private handlers: Map<string, ToolHandler> = new Map();
@@ -20,6 +21,7 @@ export class ToolDispatcher {
     this.registerTool(new ArrowTool());
     this.registerTool(new UnderlineTool());
     this.registerTool(new HighlightTool());
+    this.registerTool(new PenTool());
   }
 
   registerTool(handler: ToolHandler): void {

@@ -99,6 +99,26 @@ export const apiClient = {
     return res.json();
   },
 
+  annotatePrompt: async (params: {
+    pdf_path: string;
+    page_num?: number;
+    command?: string;
+    canvas_width?: number;
+    canvas_height?: number;
+    style_index?: number;
+  }): Promise<{ task_id: string; status: string }> =>
+    request<{ task_id: string; status: string }>('/api/annotate/prompt', {
+      method: 'POST',
+      body: JSON.stringify({
+        pdf_path: params.pdf_path,
+        page_num: params.page_num ?? 1,
+        command: params.command ?? '',
+        canvas_width: params.canvas_width ?? 1000,
+        canvas_height: params.canvas_height ?? 1000,
+        style_index: params.style_index ?? 0,
+      }),
+    }),
+
   getAnnotationStatus: (taskId: string): Promise<TaskStatus> =>
     request<TaskStatus>(`/api/annotate/${taskId}/status`),
 
