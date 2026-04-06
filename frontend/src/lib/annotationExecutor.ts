@@ -21,6 +21,7 @@ export interface ResolvedAnnotation {
   to_y: number;
   text: string;
   color: string;
+  max_width: number;
   style_index: number;
 }
 
@@ -95,7 +96,6 @@ export async function executeAnnotations(
 
       case 'margin_note': {
         if (!ann.text) break;
-        // Generate handwritten note via stroke pipeline
         try {
           const genRes = await apiClient.generate({
             text: ann.text,
@@ -103,7 +103,6 @@ export async function executeAnnotations(
             bias: 0.75,
           });
 
-          // Poll for result
           let result: StrokeResult | null = null;
           for (let i = 0; i < 60; i++) {
             const status = await apiClient.getTaskStatus(genRes.task_id);
@@ -116,10 +115,16 @@ export async function executeAnnotations(
           }
 
           if (result && result.lines) {
+            // Calculate scale to fit within max_width
+            const noteMaxWidth = ann.max_width > 0 ? ann.max_width : 150;
+            // The raw stroke width is total_width from the result
+            const rawWidth = result.total_width || 200;
+            const fitScale = Math.min(noteMaxWidth / rawWidth, 0.4);
+
             renderStrokes(canvas, result, {
               position: { x: ann.x, y: ann.y },
-              scale: 0.6, // margin notes are smaller
-              strokeWidth: 1.2,
+              scale: fitScale,
+              strokeWidth: 1.0,
             });
           }
         } catch (err) {

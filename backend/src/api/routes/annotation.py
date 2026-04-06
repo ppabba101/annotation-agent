@@ -125,4 +125,5 @@ def _serialize(a) -> dict:
         "from_x": a.from_x, "from_y": a.from_y,
         "to_x": a.to_x, "to_y": a.to_y,
         "text": a.text, "color": a.color, "style_index": a.style_index,
+        "max_width": a.max_width,
     }

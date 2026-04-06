@@ -34,6 +34,7 @@ class ResolvedAnnotation:
     to_y: float = 0.0
     # For margin notes
     text: str = ""
+    max_width: float = 0.0  # max width in canvas pixels for margin notes
     # Styling
     color: str = "yellow"
     style_index: int = 0
@@ -165,26 +166,34 @@ def resolve_coordinates(
             if not note_text:
                 continue
 
-            # Place in the right margin near the target paragraph
-            # Get paragraph position from text blocks
+            # Find the target paragraph and the content right edge
             text_blocks = page.get_text("dict").get("blocks", [])
             text_block_idx = 0
-            target_y = page_height * 0.1  # default near top
+            target_y = page_height * 0.1
+            content_right_edge = page_width * 0.65  # default
 
             for block in text_blocks:
                 if block.get("type") != 0:
                     continue
+                bbox = block.get("bbox", [0, 0, 0, 0])
+                # Track the rightmost text edge across all blocks
+                if bbox[2] > content_right_edge:
+                    content_right_edge = min(bbox[2], page_width * 0.75)
                 if text_block_idx == para_idx:
-                    bbox = block.get("bbox", [0, 0, 0, 0])
                     target_y = bbox[1]
-                    break
                 text_block_idx += 1
 
-            # Place in right margin
+            # Calculate margin space
+            margin_start = content_right_edge + 10  # small padding
+            available_width = page_width - margin_start - 10  # right page edge padding
+            available_width = max(available_width, 30)  # minimum
+
             resolved.append(ResolvedAnnotation(
                 type="margin_note",
-                x=page_width * 0.85 * scale_x,  # right margin
+                x=margin_start * scale_x,
                 y=target_y * scale_y,
+                width=available_width * scale_x,
+                max_width=available_width * scale_x,
                 text=note_text,
                 style_index=ann.get("style_index", 0),
             ))
