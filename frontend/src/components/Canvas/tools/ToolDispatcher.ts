@@ -52,10 +52,16 @@ export class ToolDispatcher {
     return { x: inverted.x, y: inverted.y };
   }
 
-  onMouseDown(canvas: FabricCanvas, e: MouseEvent): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onMouseDown(canvas: FabricCanvas, e: MouseEvent, target?: any): void {
     const pointer = this.getPointer(canvas, e);
     if (this.spaceDown) {
       this.selectTool.onMouseDown(canvas, pointer, e);
+      return;
+    }
+    // If user clicked on a selectable object, let Fabric handle selection/dragging
+    // Don't fire the drawing tool on existing objects
+    if (target && target.selectable) {
       return;
     }
     this.activeHandler?.onMouseDown(canvas, pointer, e);
@@ -80,9 +86,20 @@ export class ToolDispatcher {
   }
 
   onKeyDown(e: KeyboardEvent, canvas: FabricCanvas): void {
+    // Don't intercept keypresses in text inputs
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
     if (e.code === 'Space') {
       this.spaceDown = true;
       canvas.setCursor('grab');
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const active = canvas.getActiveObjects();
+      if (active.length > 0) {
+        active.forEach(obj => canvas.remove(obj));
+        canvas.discardActiveObject();
+        canvas.requestRenderAll();
+      }
     }
   }
 

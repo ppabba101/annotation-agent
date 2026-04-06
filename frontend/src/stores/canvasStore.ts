@@ -11,6 +11,9 @@ interface CanvasState {
   highlightColor: string;
   undoStack: string[];
   redoStack: string[];
+  pdfFile: File | null;
+  pdfCurrentPage: number;
+  pdfTotalPages: number;
   setCanvas: (canvas: Canvas) => void;
   setActiveTool: (tool: ToolType) => void;
   setZoom: (zoom: number) => void;
@@ -20,6 +23,8 @@ interface CanvasState {
   undo: () => void;
   redo: () => void;
   loadImage: (url: string) => void;
+  setPdfFile: (file: File | null, totalPages: number) => void;
+  setPdfCurrentPage: (page: number) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -31,6 +36,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   highlightColor: 'rgba(255, 235, 59, 0.3)',
   undoStack: [],
   redoStack: [],
+  pdfFile: null,
+  pdfCurrentPage: 1,
+  pdfTotalPages: 0,
 
   setCanvas: (canvas) => set({ canvas }),
 
@@ -78,6 +86,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
+  setPdfFile: (file, totalPages) => set({ pdfFile: file, pdfTotalPages: totalPages, pdfCurrentPage: 1 }),
+
+  setPdfCurrentPage: (page) => set({ pdfCurrentPage: page }),
+
   loadImage: (url: string) => {
     const { canvas } = get();
     if (!canvas) return;
@@ -93,16 +105,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((img) => {
-      // Scale to fit canvas width with some padding
+      if (!img || !img.width || !img.height) {
+        console.error('Failed to load image: invalid dimensions', url);
+        return;
+      }
+
+      // Scale to fit canvas with some padding
       const canvasWidth = canvas.getWidth();
       const canvasHeight = canvas.getHeight();
       const padding = 40;
       const maxWidth = canvasWidth - padding * 2;
       const maxHeight = canvasHeight - padding * 2;
-
-      const imgWidth = img.width ?? maxWidth;
-      const imgHeight = img.height ?? maxHeight;
-      const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight, 1);
+      const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
 
       img.set({
         scaleX: scale,
@@ -111,11 +125,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         top: canvasHeight / 2,
         originX: 'center',
         originY: 'center',
+        name: 'generated-page',
       });
 
       canvas.add(img);
       canvas.setActiveObject(img);
-      canvas.renderAll();
+      canvas.requestRenderAll();
+    }).catch((err) => {
+      console.error('Failed to load generated image:', url, err);
     });
   },
 }));

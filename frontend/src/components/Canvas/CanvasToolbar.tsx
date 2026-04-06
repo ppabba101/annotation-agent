@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { HIGHLIGHT_COLORS } from '@/components/Canvas/tools/HighlightTool';
-import { loadPDF } from '@/components/Canvas/PDFLayer';
+import { loadPDF, getPDFPageCount } from '@/components/Canvas/PDFLayer';
 import type { ToolType } from '@/types/canvas';
 
 interface Tool {
@@ -27,7 +27,7 @@ const COLOR_SWATCHES: { name: string; value: string; bg: string }[] = [
 ];
 
 export function CanvasToolbar() {
-  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo, canvas } =
+  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo, canvas, pdfCurrentPage, pdfTotalPages, pdfFile, setPdfCurrentPage, setPdfFile } =
     useCanvasStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -35,11 +35,25 @@ export function CanvasToolbar() {
     fileInputRef.current?.click();
   };
 
+  const navigatePage = async (delta: number) => {
+    if (!pdfFile || !canvas) return;
+    const newPage = pdfCurrentPage + delta;
+    if (newPage < 1 || newPage > pdfTotalPages) return;
+    try {
+      await loadPDF(pdfFile, newPage, canvas);
+      setPdfCurrentPage(newPage);
+    } catch (err) {
+      console.error('Failed to navigate PDF page:', err);
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !canvas) return;
     try {
       await loadPDF(file, 1, canvas);
+      const pageCount = await getPDFPageCount(file);
+      setPdfFile(file, pageCount);
     } catch (err) {
       console.error('Failed to load PDF:', err);
     }
@@ -63,6 +77,26 @@ export function CanvasToolbar() {
       >
         Open PDF
       </button>
+
+      {pdfTotalPages > 1 && (
+        <div className="flex items-center gap-1 text-xs text-gray-400">
+          <button
+            onClick={() => void navigatePage(-1)}
+            disabled={pdfCurrentPage <= 1}
+            className="px-1.5 py-0.5 rounded hover:bg-gray-800 disabled:opacity-30 transition-colors"
+          >
+            &larr;
+          </button>
+          <span>{pdfCurrentPage}/{pdfTotalPages}</span>
+          <button
+            onClick={() => void navigatePage(1)}
+            disabled={pdfCurrentPage >= pdfTotalPages}
+            className="px-1.5 py-0.5 rounded hover:bg-gray-800 disabled:opacity-30 transition-colors"
+          >
+            &rarr;
+          </button>
+        </div>
+      )}
 
       <div className="w-px h-5 bg-gray-700 mr-1" />
 

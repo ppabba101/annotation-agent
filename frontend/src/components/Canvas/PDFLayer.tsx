@@ -14,6 +14,14 @@ export async function loadPDF(
   pageNum: number,
   fabricCanvas: FabricCanvas
 ): Promise<void> {
+  // Remove placeholder text if present
+  const objects = fabricCanvas.getObjects();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const placeholder = objects.find((obj: any) => obj.name === '__placeholder__');
+  if (placeholder) {
+    fabricCanvas.remove(placeholder);
+  }
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 

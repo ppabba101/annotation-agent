@@ -14,7 +14,7 @@ export function SampleUpload() {
 
   const uploadFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files).filter((f) =>
-      f.type.startsWith('image/')
+      f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name)
     );
     if (arr.length === 0) return;
 
@@ -82,6 +82,11 @@ export function SampleUpload() {
 
   return (
     <div className="space-y-3">
+      {/* Instructions */}
+      <p className="text-xs text-gray-500 mb-2">
+        Upload a photo of your handwriting — any page of writing works.
+        The more text, the better the style capture.
+      </p>
       {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -102,7 +107,7 @@ export function SampleUpload() {
           ref={fileInputRef}
           type="file"
           multiple
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           className="hidden"
           onChange={onFileChange}
         />

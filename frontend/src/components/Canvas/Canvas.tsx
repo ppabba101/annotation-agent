@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Canvas as FabricCanvas, FabricText, Point } from 'fabric';
+import { Canvas as FabricCanvas, FabricImage, FabricText, Point } from 'fabric';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useStyleStore } from '@/stores/styleStore';
 import { ToolDispatcher } from './tools';
@@ -52,6 +52,16 @@ export function Canvas() {
       const { width, height } = entry.contentRect;
       fc.setWidth(width);
       fc.setHeight(height);
+
+      // Rescale background image to fit new dimensions
+      const bg = fc.backgroundImage;
+      if (bg && bg instanceof FabricImage) {
+        const scaleX = width / (bg.width ?? width);
+        const scaleY = height / (bg.height ?? height);
+        const scale = Math.min(scaleX, scaleY);
+        bg.set({ scaleX: scale, scaleY: scale });
+      }
+
       fc.renderAll();
     });
 
@@ -90,7 +100,7 @@ export function Canvas() {
     dispatcher.setActiveTool(canvas, activeTool);
 
     const handlers = {
-      'mouse:down': (opt: { e: MouseEvent }) => dispatcher.onMouseDown(canvas, opt.e),
+      'mouse:down': (opt: { e: MouseEvent; target?: unknown }) => dispatcher.onMouseDown(canvas, opt.e, opt.target),
       'mouse:move': (opt: { e: MouseEvent }) => dispatcher.onMouseMove(canvas, opt.e),
       'mouse:up': (opt: { e: MouseEvent }) => dispatcher.onMouseUp(canvas, opt.e),
     };

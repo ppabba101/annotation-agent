@@ -3,7 +3,7 @@ import { useStyleStore } from '@/stores/styleStore';
 import { SampleUpload } from './SampleUpload';
 
 export function StylePanel() {
-  const { styleName, isTraining, trainingProgress, currentStyleId } = useStyleStore();
+  const { styleName, isTraining, trainingProgress, currentStyleId, samples } = useStyleStore();
   const [uploadOpen, setUploadOpen] = useState(false);
 
   return (
@@ -21,9 +21,13 @@ export function StylePanel() {
         </p>
       )}
 
-      {/* Style preview placeholder */}
-      <div className="w-full h-16 rounded bg-gray-800 border border-gray-700 flex items-center justify-center mb-3">
-        <span className="text-xs text-gray-600">Style preview</span>
+      {/* Style preview */}
+      <div className="w-full h-16 rounded bg-gray-800 border border-gray-700 flex items-center justify-center mb-3 overflow-hidden">
+        {samples.length > 0 && samples[0].url ? (
+          <img src={samples[0].url} alt="Style preview" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-xs text-gray-600">Style preview</span>
+        )}
       </div>
 
       {/* Training status */}
