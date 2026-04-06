@@ -3,7 +3,7 @@ import { useCanvasStore } from '@/stores/canvasStore';
 import { loadPDF, getPDFPageCount } from '@/components/Canvas/PDFLayer';
 
 export function ProjectPanel() {
-  const { canvas, pdfCurrentPage, pdfTotalPages, pdfFile, setPdfFile, setPdfCurrentPage } = useCanvasStore();
+  const { canvas, pdfCurrentPage, pdfTotalPages, setPdfFile, navigatePage: navPage } = useCanvasStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const openPDF = async (file: File) => {
@@ -17,14 +17,6 @@ export function ProjectPanel() {
     const file = e.target.files?.[0];
     if (file) void openPDF(file);
     e.target.value = '';
-  };
-
-  const navigatePage = async (delta: number) => {
-    if (!pdfFile || !canvas) return;
-    const newPage = pdfCurrentPage + delta;
-    if (newPage < 1 || newPage > pdfTotalPages) return;
-    await loadPDF(pdfFile, newPage, canvas);
-    setPdfCurrentPage(newPage);
   };
 
   return (
@@ -50,7 +42,7 @@ export function ProjectPanel() {
       {pdfTotalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
           <button
-            onClick={() => void navigatePage(-1)}
+            onClick={() => void navPage(-1)}
             disabled={pdfCurrentPage <= 1}
             className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-30"
           >
@@ -58,7 +50,7 @@ export function ProjectPanel() {
           </button>
           <span>Page {pdfCurrentPage} / {pdfTotalPages}</span>
           <button
-            onClick={() => void navigatePage(1)}
+            onClick={() => void navPage(1)}
             disabled={pdfCurrentPage >= pdfTotalPages}
             className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-30"
           >

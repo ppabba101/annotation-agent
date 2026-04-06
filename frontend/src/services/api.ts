@@ -40,7 +40,7 @@ async function request<T>(
       const body = await res.json() as { detail?: string };
       detail = body.detail ?? detail;
     } catch {
-      // ignore parse errors
+      // ignore
     }
     throw new ApiClientError({ detail, status: res.status });
   }
@@ -52,7 +52,7 @@ export const apiClient = {
   healthCheck: (): Promise<{ status: string }> =>
     request<{ status: string }>('/health'),
 
-  // Generation
+  // Handwriting generation (stroke-based)
   generate: (req: GenerateRequest): Promise<GenerateResponse> =>
     request<GenerateResponse>('/api/generate', {
       method: 'POST',
@@ -64,6 +64,46 @@ export const apiClient = {
 
   getTaskResult: (taskId: string): Promise<StrokeResult> =>
     request<StrokeResult>(`/api/generate/${taskId}/result`),
+
+  // Annotation endpoints
+  uploadPdf: async (file: File): Promise<{ pdf_path: string; pdf_id: string; filename: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/api/annotate/upload-pdf`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok) throw new ApiClientError({ detail: res.statusText, status: res.status });
+    return res.json();
+  },
+
+  annotateAutonomous: async (params: {
+    pdf_path: string;
+    start_page?: number;
+    end_page?: number;
+    canvas_width?: number;
+    canvas_height?: number;
+    context?: string;
+    style_index?: number;
+  }): Promise<{ task_id: string; status: string }> => {
+    const form = new FormData();
+    form.append('pdf_path', params.pdf_path);
+    if (params.start_page) form.append('start_page', String(params.start_page));
+    if (params.end_page) form.append('end_page', String(params.end_page));
+    if (params.canvas_width) form.append('canvas_width', String(params.canvas_width));
+    if (params.canvas_height) form.append('canvas_height', String(params.canvas_height));
+    if (params.context) form.append('context', params.context);
+    if (params.style_index != null) form.append('style_index', String(params.style_index));
+    const res = await fetch(`${BASE_URL}/api/annotate/autonomous`, { method: 'POST', body: form });
+    if (!res.ok) throw new ApiClientError({ detail: res.statusText, status: res.status });
+    return res.json();
+  },
+
+  getAnnotationStatus: (taskId: string): Promise<TaskStatus> =>
+    request<TaskStatus>(`/api/annotate/${taskId}/status`),
+
+  getAnnotationResult: (taskId: string): Promise<Record<string, unknown>> =>
+    request<Record<string, unknown>>(`/api/annotate/${taskId}/result`),
 
   // NL Commands
   sendNLCommand: (req: NLCommandRequest): Promise<NLCommandResponse> =>

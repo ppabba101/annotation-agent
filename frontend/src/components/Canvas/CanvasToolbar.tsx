@@ -27,24 +27,12 @@ const COLOR_SWATCHES: { name: string; value: string; bg: string }[] = [
 ];
 
 export function CanvasToolbar() {
-  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo, canvas, pdfCurrentPage, pdfTotalPages, pdfFile, setPdfCurrentPage, setPdfFile } =
+  const { activeTool, setActiveTool, highlightColor, setHighlightColor, undo, redo, canvas, pdfCurrentPage, pdfTotalPages, setPdfFile, navigatePage } =
     useCanvasStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePdfOpen = () => {
     fileInputRef.current?.click();
-  };
-
-  const navigatePage = async (delta: number) => {
-    if (!pdfFile || !canvas) return;
-    const newPage = pdfCurrentPage + delta;
-    if (newPage < 1 || newPage > pdfTotalPages) return;
-    try {
-      await loadPDF(pdfFile, newPage, canvas);
-      setPdfCurrentPage(newPage);
-    } catch (err) {
-      console.error('Failed to navigate PDF page:', err);
-    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

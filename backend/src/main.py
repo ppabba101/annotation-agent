@@ -12,7 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import generation, health
+from src.api.routes import annotation, generation, health
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -51,6 +51,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(generation.router)
+app.include_router(annotation.router)
 
 # Static file serving for any generated assets
 _data_dir = Path(__file__).resolve().parent.parent / "data"
