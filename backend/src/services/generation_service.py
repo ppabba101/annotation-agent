@@ -1,7 +1,7 @@
+"""Generation service — routes requests to the stroke pipeline."""
 import logging
 
-from src.config import settings
-from src.ml.pipeline import GenerationPipeline, GenerationRequest
+from src.ml.pipeline import GenerationRequest, StrokeGenerationResult
 from src.workers.task_queue import TaskQueue, TaskStatus
 
 logger = logging.getLogger(__name__)
@@ -9,57 +9,58 @@ logger = logging.getLogger(__name__)
 _queue = TaskQueue()
 
 
-def _build_pipeline() -> GenerationPipeline:
-    if settings.GPU_PROVIDER == "modal":
-        try:
-            from src.ml.diffbrush_pipeline import DiffBrushPipeline
-            return DiffBrushPipeline()
-        except Exception as exc:
-            logger.warning(
-                "DiffBrushPipeline unavailable (%s), falling back to MockPipeline", exc
-            )
-    from src.ml.mock_pipeline import MockPipeline
-    return MockPipeline()
+def _build_pipeline():
+    from src.ml.stroke_pipeline import StrokePipeline
+    return StrokePipeline()
 
 
-_pipeline: GenerationPipeline = _build_pipeline()
+_pipeline = _build_pipeline()
 
 
 class GenerationService:
-    async def submit(self, body: object) -> str:
+    async def submit(self, text: str, style_index: int = 0, bias: float = 0.5) -> str:
         request = GenerationRequest(
-            text=body.text,
-            style_id=body.style_id,
-            page_width=body.page_width,
-            page_height=body.page_height,
-            margin_top=body.margin_top,
-            margin_left=body.margin_left,
-            margin_right=body.margin_right,
-            line_height=body.line_height,
+            text=text,
+            style_index=style_index,
+            bias=bias,
         )
 
         async def _run() -> dict:
+            logger.info("Generation started: text=%r, style=%d, bias=%.2f",
+                        request.text, request.style_index, request.bias)
             result = None
-            async for update in _pipeline.generate_page(request):
-                result = update
+            try:
+                async for update in _pipeline.generate(request):
+                    logger.debug("Pipeline update: %s", type(update).__name__)
+                    result = update
+            except Exception:
+                logger.exception("Pipeline error during generation")
+                raise
+
             if result is None:
+                logger.error("Pipeline returned no result")
                 return {}
-            from src.ml.pipeline import GenerationResult
-            if isinstance(result, GenerationResult):
+
+            if isinstance(result, StrokeGenerationResult):
+                logger.info("Generation complete: %d lines", len(result.lines))
                 return {
-                    "image_url": result.image_url,
                     "lines": [
                         {
-                            "image_url": ln.image_url,
-                            "x": ln.x,
-                            "y": ln.y,
-                            "width": ln.width,
-                            "height": ln.height,
+                            "d": ln.d,
+                            "bbox": {
+                                "x": ln.bbox_x,
+                                "y": ln.bbox_y,
+                                "width": ln.bbox_width,
+                                "height": ln.bbox_height,
+                            },
                             "text_content": ln.text_content,
                         }
                         for ln in result.lines
                     ],
+                    "total_width": result.total_width,
+                    "total_height": result.total_height,
                 }
+            logger.warning("Pipeline returned non-result: %s", type(result).__name__)
             return {}
 
         task_id = await _queue.submit(_run())

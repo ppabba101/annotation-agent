@@ -1,9 +1,8 @@
 import type {
-  StyleUploadResponse,
-  StyleInfo,
   TaskStatus,
   GenerateRequest,
   GenerateResponse,
+  StrokeResult,
   NLCommandRequest,
   NLCommandResponse,
   ApiError,
@@ -53,31 +52,6 @@ export const apiClient = {
   healthCheck: (): Promise<{ status: string }> =>
     request<{ status: string }>('/health'),
 
-  // Styles
-  uploadStyle: async (name: string, images: File[]): Promise<StyleUploadResponse> => {
-    const form = new FormData();
-    form.append('name', name);
-    images.forEach((img) => form.append('images', img));
-    const res = await fetch(`${BASE_URL}/api/styles/upload`, {
-      method: 'POST',
-      body: form,
-    });
-    if (!res.ok) {
-      let detail = res.statusText;
-      try {
-        const body = await res.json() as { detail?: string };
-        detail = body.detail ?? detail;
-      } catch {
-        // ignore
-      }
-      throw new ApiClientError({ detail, status: res.status });
-    }
-    return res.json() as Promise<StyleUploadResponse>;
-  },
-
-  listStyles: (): Promise<StyleInfo[]> =>
-    request<StyleInfo[]>('/api/styles'),
-
   // Generation
   generate: (req: GenerateRequest): Promise<GenerateResponse> =>
     request<GenerateResponse>('/api/generate', {
@@ -88,8 +62,8 @@ export const apiClient = {
   getTaskStatus: (taskId: string): Promise<TaskStatus> =>
     request<TaskStatus>(`/api/generate/${taskId}/status`),
 
-  getTaskResult: (taskId: string): Promise<Record<string, unknown>> =>
-    request<Record<string, unknown>>(`/api/generate/${taskId}/result`),
+  getTaskResult: (taskId: string): Promise<StrokeResult> =>
+    request<StrokeResult>(`/api/generate/${taskId}/result`),
 
   // NL Commands
   sendNLCommand: (req: NLCommandRequest): Promise<NLCommandResponse> =>

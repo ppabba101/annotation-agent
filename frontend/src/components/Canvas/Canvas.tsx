@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Canvas as FabricCanvas, FabricImage, FabricText, Point } from 'fabric';
 import { useCanvasStore } from '@/stores/canvasStore';
-import { useStyleStore } from '@/stores/styleStore';
 import { ToolDispatcher } from './tools';
 
 export function Canvas() {
@@ -9,7 +8,6 @@ export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const dispatcherRef = useRef(new ToolDispatcher());
   const { setCanvas, canvas, activeTool } = useCanvasStore();
-  const currentStyleId = useStyleStore((s) => s.currentStyleId);
 
   const initCanvas = useCallback(() => {
     const el = canvasElRef.current;
@@ -123,14 +121,6 @@ export function Canvas() {
   return (
     <div ref={containerRef} className="absolute inset-0 bg-gray-800">
       <canvas ref={canvasElRef} />
-      {!currentStyleId && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-gray-900/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-gray-700/50 text-center max-w-xs">
-            <p className="text-sm text-gray-300 mb-1">Upload handwriting samples to get started</p>
-            <p className="text-xs text-gray-500">Use the Style panel in the sidebar</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

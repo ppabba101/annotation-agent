@@ -4,8 +4,8 @@ import { ChatHistory } from './ChatHistory';
 import { apiClient } from '@/services/api';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useStyleStore } from '@/stores/styleStore';
-
-const BASE_URL = 'http://localhost:8000';
+import { renderStrokes } from '@/lib/strokeRenderer';
+import type { StrokeResult } from '@/types/api';
 
 const GENERATE_PREFIXES = ['write:', 'generate:', 'gen:'] as const;
 
@@ -20,7 +20,7 @@ function parseGenerateCommand(text: string): string | null {
 }
 
 async function pollTaskUntilDone(taskId: string, onStatus: (status: string) => void): Promise<string> {
-  const maxAttempts = 120; // 2 minutes at 1s intervals
+  const maxAttempts = 120;
   for (let i = 0; i < maxAttempts; i++) {
     const result = await apiClient.getTaskStatus(taskId);
     onStatus(result.status);
@@ -60,55 +60,44 @@ export function ChatBar() {
   }, []);
 
   const submitGeneration = async (text: string) => {
-    const styleId = useStyleStore.getState().currentStyleId;
-    if (!styleId) {
-      showStatus('Upload handwriting samples first (sidebar \u2192 Upload Samples)', 'error');
-      useChatStore.getState().updateLastMessage(
-        'No style selected. Upload handwriting samples first.',
-        'error'
-      );
-      return;
-    }
+    const { currentStyleIndex, bias } = useStyleStore.getState();
 
     showStatus('Generating handwriting...', 'info');
     useChatStore.getState().updateLastMessage('Submitting generation...', 'ok');
 
     try {
-      const res = await apiClient.generate({ text, style_id: styleId });
+      const res = await apiClient.generate({
+        text,
+        style_index: currentStyleIndex,
+        bias,
+      });
       const taskId = res.task_id;
 
       showStatus('Generating handwriting...', 'info');
-      useChatStore.getState().updateLastMessage(`Generating... (task: ${taskId.slice(0, 8)})`, 'ok');
 
       const finalStatus = await pollTaskUntilDone(taskId, (status) => {
         showStatus(`Generating handwriting... (${status})`, 'info');
-        useChatStore.getState().updateLastMessage(`Status: ${status}...`, 'ok');
       });
 
       if (finalStatus === 'completed') {
-        // Fetch the result to get the image URL
-        try {
-          const result = await apiClient.getTaskResult(taskId);
-          const imageUrl = result.image_url as string | undefined;
-          if (imageUrl) {
-            const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${BASE_URL}${imageUrl}`;
-            useCanvasStore.getState().loadImage(fullUrl);
-          } else {
-            const staticUrl = `${BASE_URL}/static/samples/_generated/${taskId}_page.png`;
-            useCanvasStore.getState().loadImage(staticUrl);
-          }
-        } catch {
-          const staticUrl = `${BASE_URL}/static/samples/_generated/${taskId}_page.png`;
-          useCanvasStore.getState().loadImage(staticUrl);
+        const result: StrokeResult = await apiClient.getTaskResult(taskId);
+
+        if (result.lines && result.lines.length > 0 && canvas) {
+          // Push undo BEFORE adding strokes
+          useCanvasStore.getState().pushUndo();
+          renderStrokes(canvas, result);
+          showStatus('Done! Handwriting rendered.', 'success');
+          useChatStore.getState().updateLastMessage('Handwriting generated on canvas.', 'ok');
+        } else {
+          showStatus('Generation returned empty result', 'error');
+          useChatStore.getState().updateLastMessage('No strokes generated.', 'error');
         }
-        showStatus('Done! Image loaded.', 'success');
-        useChatStore.getState().updateLastMessage('Generation complete! Image loaded onto canvas.', 'ok');
       } else if (finalStatus === 'failed') {
-        showStatus('Failed: Generation did not complete', 'error');
-        useChatStore.getState().updateLastMessage('Generation failed. Please try again.', 'error');
+        showStatus('Generation failed', 'error');
+        useChatStore.getState().updateLastMessage('Generation failed.', 'error');
       } else {
-        showStatus('Failed: Generation timed out', 'error');
-        useChatStore.getState().updateLastMessage('Generation timed out. Check back later.', 'error');
+        showStatus('Generation timed out', 'error');
+        useChatStore.getState().updateLastMessage('Generation timed out.', 'error');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -175,7 +164,6 @@ export function ChatBar() {
         </div>
       )}
 
-      {/* Inline status bar */}
       {inlineStatus && (
         <div
           className={`px-4 py-2 text-xs font-medium flex items-center gap-2 border-b border-gray-800 ${
@@ -189,12 +177,8 @@ export function ChatBar() {
           {inlineStatus.type === 'info' && (
             <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
           )}
-          {inlineStatus.type === 'success' && (
-            <span className="text-green-400">&#10003;</span>
-          )}
-          {inlineStatus.type === 'error' && (
-            <span className="text-red-400">&#10007;</span>
-          )}
+          {inlineStatus.type === 'success' && <span className="text-green-400">&#10003;</span>}
+          {inlineStatus.type === 'error' && <span className="text-red-400">&#10007;</span>}
           <span>{inlineStatus.text}</span>
           <button
             onClick={() => setInlineStatus(null)}

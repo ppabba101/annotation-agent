@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from enum import Enum
 from typing import Any, Coroutine
+
+logger = logging.getLogger(__name__)
 
 
 class TaskStatus(str, Enum):
@@ -48,12 +51,15 @@ class TaskQueue:
                 continue
 
             entry.status = TaskStatus.running
+            logger.info("Task %s: running", task_id)
             try:
                 entry.result = await entry.coro
                 entry.status = TaskStatus.completed
+                logger.info("Task %s: completed", task_id)
             except Exception as exc:  # noqa: BLE001
                 entry.error = str(exc)
                 entry.status = TaskStatus.failed
+                logger.error("Task %s: failed — %s", task_id, exc)
             finally:
                 self._queue.task_done()
 

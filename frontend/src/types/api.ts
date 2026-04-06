@@ -1,24 +1,9 @@
 // ── Request types ──────────────────────────────────────────────────────────────
 
-export interface UploadSampleRequest {
-  file: File;
-  styleId?: string;
-}
-
-export interface StartTrainingRequest {
-  styleId: string;
-  sampleIds: string[];
-}
-
 export interface GenerateRequest {
   text: string;
-  style_id: string;
-}
-
-export interface AnnotateRequest {
-  command: string;
-  pageId: string;
-  canvasJson: string;
+  style_index?: number;  // 0-12, default 0
+  bias?: number;         // 0.0-1.0, default 0.5
 }
 
 export interface NLCommandRequest {
@@ -37,35 +22,21 @@ export interface ApiError {
   status: number;
 }
 
-export interface StyleUploadResponse {
-  style_id: string;
-  name: string;
-  sample_count: number;
-}
-
-export interface StyleInfo {
-  id: string;
-  name: string;
-  created_at: string;
-  sample_count: number;
-}
-
 export interface TaskStatus {
   task_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
 }
 
-export interface UploadSampleResponse {
-  sampleId: string;
-  styleId: string;
-  filename: string;
-  status: 'uploaded';
+export interface StrokeLine {
+  d: string;
+  bbox: { x: number; y: number; width: number; height: number };
+  text_content: string;
 }
 
-export interface StartTrainingResponse {
-  taskId: string;
-  styleId: string;
-  status: 'queued' | 'training';
+export interface StrokeResult {
+  lines: StrokeLine[];
+  total_width: number;
+  total_height: number;
 }
 
 export interface GenerateResponse {
@@ -73,22 +44,10 @@ export interface GenerateResponse {
   status: string;
 }
 
-export interface AnnotateResponse {
-  taskId: string;
-  status: 'queued' | 'processing';
-  patches?: CanvasPatch[];
-}
-
 export interface NLCommandResponse {
   interpretation: string;
   actions: CommandAction[];
   status: 'ok' | 'error';
-}
-
-export interface CanvasPatch {
-  type: 'add' | 'remove' | 'modify';
-  objectId?: string;
-  fabricData?: string;
 }
 
 export interface CommandAction {
@@ -103,7 +62,7 @@ export type ProgressStatus = 'queued' | 'processing' | 'complete' | 'error';
 export interface ProgressEvent {
   taskId: string;
   status: ProgressStatus;
-  progress: number; // 0–100
+  progress: number;
   message?: string;
   result?: unknown;
 }

@@ -1,58 +1,44 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""Generation API routes — submit text, poll status, get stroke results."""
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.services.generation_service import GenerationService
 
 router = APIRouter(prefix="/api/generate", tags=["generation"])
 
+_service = GenerationService()
+
 
 class GenerationRequestBody(BaseModel):
     text: str
-    style_id: str
-    page_width: int = 2480
-    page_height: int = 3508
-    margin_top: int = 200
-    margin_left: int = 200
-    margin_right: int = 200
-    line_height: int = 80
-
-
-def get_generation_service() -> GenerationService:
-    return GenerationService()
+    style_index: int = 0  # 0-12 for built-in styles
+    bias: float = 0.5     # 0.0 (messy) to 1.0 (neat)
 
 
 @router.post("")
-async def generate(
-    body: GenerationRequestBody,
-    service: GenerationService = Depends(get_generation_service),
-) -> dict:
-    """Submit a text generation job and return a task_id."""
-    task_id = await service.submit(body)
+async def generate(body: GenerationRequestBody) -> dict:
+    """Submit a handwriting generation job."""
+    task_id = await _service.submit(
+        text=body.text,
+        style_index=body.style_index,
+        bias=body.bias,
+    )
     return {"task_id": task_id, "status": "pending"}
 
 
 @router.get("/{task_id}/status")
-async def get_generation_status(
-    task_id: str,
-    service: GenerationService = Depends(get_generation_service),
-) -> dict:
-    """Poll the status of a generation task."""
-    status = await service.get_status(task_id=task_id)
+async def get_status(task_id: str) -> dict:
+    """Poll generation task status."""
+    status = await _service.get_status(task_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return status
 
 
 @router.get("/{task_id}/result")
-async def get_generation_result(
-    task_id: str,
-    service: GenerationService = Depends(get_generation_service),
-) -> dict:
-    """Retrieve the completed result of a generation task."""
-    result = await service.get_result(task_id=task_id)
+async def get_result(task_id: str) -> dict:
+    """Get completed stroke generation result."""
+    result = await _service.get_result(task_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Result not available")
-    # Ensure image_url is present, falling back to the static path convention
-    if "image_url" not in result or not result["image_url"]:
-        result["image_url"] = f"/static/samples/_generated/{task_id}_page.png"
     return result

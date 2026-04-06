@@ -1,38 +1,38 @@
 import { create } from 'zustand';
-import type { SampleInfo } from '@/types/project';
 
-interface StyleState {
-  currentStyleId: string | null;
-  styleName: string;
-  isTraining: boolean;
-  trainingProgress: number;
-  samples: SampleInfo[];
-  setStyle: (id: string, name: string) => void;
-  setTrainingStatus: (training: boolean, progress: number) => void;
-  addSample: (sample: SampleInfo) => void;
-  removeSample: (id: string) => void;
+export interface PresetStyle {
+  index: number;
+  name: string;
 }
 
-export const useStyleStore = create<StyleState>((set, get) => ({
-  currentStyleId: null,
-  styleName: 'No Style',
-  isTraining: false,
-  trainingProgress: 0,
-  samples: [],
+// 13 built-in styles from the RNN model (indices 0-12)
+export const PRESET_STYLES: PresetStyle[] = [
+  { index: 0, name: 'Classic' },
+  { index: 1, name: 'Cursive' },
+  { index: 2, name: 'Neat' },
+  { index: 3, name: 'Casual' },
+  { index: 4, name: 'Bold' },
+  { index: 5, name: 'Elegant' },
+  { index: 6, name: 'Quick' },
+  { index: 7, name: 'Compact' },
+  { index: 8, name: 'Loose' },
+  { index: 9, name: 'Formal' },
+  { index: 10, name: 'Relaxed' },
+  { index: 11, name: 'Precise' },
+  { index: 12, name: 'Natural' },
+];
 
-  setStyle: (id, name) =>
-    set({ currentStyleId: id, styleName: name }),
+interface StyleState {
+  currentStyleIndex: number;
+  bias: number; // 0.0 (messy) to 1.0 (neat)
+  setStyleIndex: (index: number) => void;
+  setBias: (bias: number) => void;
+}
 
-  setTrainingStatus: (training, progress) =>
-    set({ isTraining: training, trainingProgress: progress }),
+export const useStyleStore = create<StyleState>((set) => ({
+  currentStyleIndex: 0,
+  bias: 0.75,
 
-  addSample: (sample) => {
-    const { samples } = get();
-    set({ samples: [...samples, sample] });
-  },
-
-  removeSample: (id) => {
-    const { samples } = get();
-    set({ samples: samples.filter((s) => s.id !== id) });
-  },
+  setStyleIndex: (index) => set({ currentStyleIndex: index }),
+  setBias: (bias) => set({ bias: Math.max(0, Math.min(1, bias)) }),
 }));

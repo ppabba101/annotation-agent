@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -11,21 +12,27 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import annotation, generation, health, nlcommand, samples, training
-from src.api.routes.styles import router as styles_router
-from src.config import settings
+from src.api.routes import generation, health
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+for noisy in ("uvicorn.access", "httpcore", "httpx", "modal", "hpack"):
+    logging.getLogger(noisy).setLevel(logging.WARNING)
+
+logger = logging.getLogger("annotation-agent")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Startup
     yield
-    # Shutdown — nothing to clean up for now
 
 
 app = FastAPI(
     title="Annotation Agent API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -42,16 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
 app.include_router(health.router)
-app.include_router(samples.router)
-app.include_router(training.router)
 app.include_router(generation.router)
-app.include_router(annotation.router)
-app.include_router(nlcommand.router)
-app.include_router(styles_router)
 
-# Static file serving for generated images
+# Static file serving for any generated assets
 _data_dir = Path(__file__).resolve().parent.parent / "data"
 _data_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_data_dir)), name="static")
@@ -67,32 +68,13 @@ async def ws_progress(websocket: WebSocket) -> None:
     _ws_clients.append(websocket)
     try:
         while True:
-            # Keep connection alive; clients send pings as plain text
             data = await websocket.receive_text()
             await websocket.send_text(json.dumps({"type": "pong", "data": data}))
     except WebSocketDisconnect:
         _ws_clients.remove(websocket)
 
 
-async def broadcast_progress(message: dict) -> None:
-    """Broadcast a progress message to all connected WebSocket clients."""
-    disconnected: list[WebSocket] = []
-    for ws in list(_ws_clients):
-        try:
-            await ws.send_text(json.dumps(message))
-        except Exception:  # noqa: BLE001
-            disconnected.append(ws)
-    for ws in disconnected:
-        if ws in _ws_clients:
-            _ws_clients.remove(ws)
-
-
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "src.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=True,
-    )
+    uvicorn.run("src.main:app", host="127.0.0.1", port=8000, reload=True)
